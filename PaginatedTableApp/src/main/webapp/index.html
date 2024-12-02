@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Testing</title>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.1/css/jquery.dataTables.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.min.js"></script>
+    <style>
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .pagination button {
+            padding: 8px 15px;
+            font-size: 14px;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+            margin: 2px;
+        }
+
+        .pagination button.active {
+            background-color: #007bff;
+            color: white;
+            border: 1px solid #007bff;
+        }
+
+        .pagination button:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            background-color: #ddd;
+        }
+    </style>
+</head>
+<body>
+    <h1>MyData</h1>
+    <table id="dataTable" class="display" style="width:100%">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Age</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <!-- Pagination Buttons -->
+    <div class="pagination" id="pagination"></div>
+
+    <script>
+        const pageSize = 10; // Number of rows per page
+        let currentPage = 1; // Current page number
+        let totalDataCount = 0; // Total number of rows
+
+        // Function to load data for the current page
+        function loadTableData(page) {
+            $.ajax({
+                url: `/PaginatedTableApp/data?page=${page}`, // Adjust URL to match your servlet path
+                method: 'GET',
+                success: function (data, textStatus, request) {
+                    const table = $('#dataTable').DataTable();
+                    table.clear(); // Clear existing data
+                    data.forEach(item => {
+                        table.row.add([item.id, item.name, item.age]); // Add rows
+                    });
+                    table.draw();
+
+                    // Get total items from response header and update pagination
+                    const totalItems = request.getResponseHeader('X-Total-Count');
+                    if (totalItems) {
+                        totalDataCount = parseInt(totalItems, 10);
+                        updatePaginationButtons();
+                    }
+                }
+            });
+        }
+
+        // Function to update pagination buttons based on the data
+        function updatePaginationButtons() {
+            const totalPages = Math.ceil(totalDataCount / pageSize); // Calculate total pages
+            const pagination = $('#pagination');
+            pagination.empty(); // Clear existing buttons
+
+            // Create "Previous" button
+            if (currentPage > 1) {
+                pagination.append('<button id="prevBtn">Previous</button>');
+            } else {
+                pagination.append('<button id="prevBtn" disabled>Previous</button>');
+            }
+
+            // Determine page range to display (1-5, 6-10, etc.)
+            const pageRange = 5; // Show 5 pages at a time
+            const startPage = Math.max(1, currentPage - Math.floor(pageRange / 2));
+            const endPage = Math.min(totalPages, startPage + pageRange - 1);
+
+            // Loop to create page numbers
+            for (let i = startPage; i <= endPage; i++) {
+                const button = $(`<button>${i}</button>`);
+                if (i === currentPage) {
+                    button.addClass('active'); // Highlight current page
+                }
+                button.on('click', function () {
+                    currentPage = i;
+                    loadTableData(currentPage);
+                });
+                pagination.append(button);
+            }
+
+            // Create "Next" button
+            if (currentPage < totalPages) {
+                pagination.append('<button id="nextBtn">Next</button>');
+            } else {
+                pagination.append('<button id="nextBtn" disabled>Next</button>');
+            }
+
+            // Enable/Disable "Next" and "Previous" buttons
+            $('#prevBtn').on('click', function () {
+                if (currentPage > 1) {
+                    currentPage--;
+                    loadTableData(currentPage);
+                }
+            });
+
+            $('#nextBtn').on('click', function () {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    loadTableData(currentPage);
+                }
+            });
+        }
+
+        // Initialize DataTable with search functionality
+        $(document).ready(function () {
+            $('#dataTable').DataTable({
+                paging: false, // Disable built-in paging
+                searching: true, // Enable search box
+                info: false // Disable info display for simplicity
+            });
+
+            // Load the first page of data
+            loadTableData(currentPage);
+        });
+    </script>
+</body>
+</html>
